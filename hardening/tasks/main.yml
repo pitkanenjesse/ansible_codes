@@ -1,0 +1,41 @@
+- name: 5.2.10 Ensure PermitRootLogin is disabled
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    line: "PermitRootLogin no"
+    regexp: '^PermitRootLogin\s*[^n]'
+  notify:  restart sshd
+  register: sshd_root
+
+- name: Set rule variable name
+  set_fact:
+    rule_name: "Ensure PermitRootLogin is disabled"
+    rule_number: "5.2.10"
+    rule_changed: "No"
+    env: "production"
+    my_ip: "10.0.2.15"
+
+- name: Set changing fact
+  set_fact:
+    rule_changed: "Yes"
+  when: sshd_root.changed
+
+- name: debug
+  debug: 
+    var: sshd_root
+
+- name: debug2
+  debug:
+    var: rule_changed
+
+- stat: path=/share/log_export
+  register: file_stat
+
+- name: create fake 'nologin' shell
+  file: path=/share/log_export state=touch owner=root group=root
+  when: file_stat.stat.exists is defined and not file_stat.stat.exists
+
+- name: Write log
+  lineinfile:
+    path: /share/log_export
+    line: "{{ ansible_hostname }};{{ my_ip }};{{ env }};'{{ rule_name }}';{{ rule_number }};{{ rule_changed }}"
+  notify:  restart sshd
